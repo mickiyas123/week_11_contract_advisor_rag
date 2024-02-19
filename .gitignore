@@ -22,3 +22,7 @@
 /front-end/*.njsproj
 /front-end/*.sln
 /front-end/*.sw?
+
+
+
+/back-end/__pycache__/
