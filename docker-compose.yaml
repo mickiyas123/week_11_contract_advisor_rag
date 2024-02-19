@@ -1,0 +1,16 @@
+version: "3"
+services:
+  front-end:
+    build: ./front-end
+    container_name: front-end-container_name
+    ports:
+      - 5173:5173
+    environment:
+      - CHOKIDAR_USEPOLING:true
+    volumes:
+      - ./front-end:/app
+      # - ./front-end/node_modules:/front-end/node_modules
+    stdin_open: true
+    tty: true
+
+
