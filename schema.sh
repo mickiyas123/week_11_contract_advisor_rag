@@ -1,5 +1,5 @@
-mkdir backend 
-cd backend 
+mkdir back-end 
+cd back-end 
 mkdir app tests docs
 touch .env README.md  requirements.txt
 cd app
