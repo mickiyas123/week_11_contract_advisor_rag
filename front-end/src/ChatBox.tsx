@@ -1,31 +1,142 @@
+import { fetchEventSource } from "@microsoft/fetch-event-source";
+import { useState } from "react";
+import React from "react";
+
+interface Message {
+  message: string;
+  isUser: boolean;
+  sources?: string[];
+}
+
 const ChatBox = () => {
+  const [inputValue, setInputValue] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const setPartialMessage = (chunk: string, sources: string[] = []): void => {
+    setMessages((prevMessages) => {
+      const lastMessage = prevMessages[prevMessages.length - 1];
+      if (prevMessages.length === 0 || !lastMessage.isUser) {
+        return [
+          ...prevMessages.slice(0, -1),
+          {
+            message: lastMessage.message + chunk,
+            isUser: false,
+            sources: lastMessage.sources
+              ? [...lastMessage.sources, ...sources]
+              : sources,
+          },
+        ];
+      }
+
+      return [...prevMessages, { message: chunk, isUser: false, sources }];
+    });
+  };
+  function formatSource(source: string) {
+    return source.split("/").pop() || "";
+  }
+  const handleReceiveMessage = (data: string) => {
+    const parsedData = JSON.parse(data);
+
+    if (parsedData.answer) {
+      setPartialMessage(parsedData.answer.content);
+    }
+
+    if (parsedData.docs) {
+      setPartialMessage(
+        "",
+        parsedData.docs.map((doc: any) => doc.metadata.source)
+      );
+    }
+  };
+  const handleSendMessage = async (message: string) => {
+    setInputValue("");
+
+    setMessages((prevMessage) => [...prevMessage, { message, isUser: true }]);
+
+    await fetchEventSource(`${"http://localhost:8000"}/rag/stream`, {
+      method: "POST",
+      headers: {
+        "Content-type": "application/json",
+      },
+      body: JSON.stringify({
+        input: {
+          question: message,
+        },
+      }),
+      onmessage(event) {
+        if (event.event === "data") {
+          handleReceiveMessage(event.data);
+        }
+      },
+    });
+  };
+  const handleKeyPress = (
+    event: React.KeyboardEvent<HTMLTextAreaElement>
+  ): void => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      handleSendMessage(inputValue.trim());
+    }
+  };
   return (
-    <div className="flex justify-center items-end bg-gray-200 h-screen w-full">
-      <div className="chat-bar flex justify-start items-center p-2 bg-white shadow-md h- rounded-lg w-full max-w-sm group mb-8">
-        <input
-          type="text"
-          placeholder="what do you like to ask?"
-          className="outline-none bg-transparent h-6 p-1 border-b-2 flex-grow mr-4 text-gray-800 hover:border-gray-300 focus:border-teal-400"
-        />
-        <a
-          href="/"
-          className="mr-3 p-1 bg-gray-200 rounded-full shadow  bg-teal-500 hover:bg-teal-800 hover:shadow-none text-white text-base"
-        >
-          <svg
-            className="fill-current"
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            width="24"
-            height="24"
-          >
-            <path
-              className="heroicon-ui"
-              d="M15.6 15.47A4.99 4.99 0 0 1 7 12a5 5 0 0 1 10 0v1.5a1.5 1.5 0 1 0 3 0V12a8 8 0 1 0-4.94 7.4 1 1 0 1 1 .77 1.84A10 10 0 1 1 22 12v1.5a3.5 3.5 0 0 1-6.4 1.97zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"
-            />
-          </svg>
-        </a>
-        <a href="/to"></a>
-      </div>
+    <div className="min-h-screen bg-gray-900 flex flex-col">
+      <header className="bg-gray-800 text-white text-center p-4">
+        Contract Q&A Chat Bot Assistance
+      </header>
+      <main className="flex-grow container mx-auto p-4 flex-col">
+        <div className="flex-grow bg-gray-700 shadow overflow-hidden sm:rounded-lg">
+          <div className="border-b border-gray-600 p-4">
+            {/* message */}
+            {messages.map((msg, index) => (
+              <div
+                key={index}
+                className={`p-3 my-3 rounded-lg text-white ml-auto ${
+                  msg.isUser ? "bg-gray-800" : "bg-gray-900"
+                }`}
+              >
+                {msg.message}
+                {/*  Source */}
+                {!msg.isUser && (
+                  <div className={"text-xs"}>
+                    <hr className="border-b mt-5 mb-5"></hr>
+                    {msg.sources?.map((source, index) => (
+                      <div key={index}>
+                        <a
+                          target="_blank"
+                          download
+                          href={`${"http://localhost:8000"}/rag/static/${encodeURI(
+                            formatSource(source)
+                          )}`}
+                          rel="noreferrer"
+                        >
+                          {formatSource(source)}
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <div className="p-4 bg-gray-800">
+            <textarea
+              className="form-textarea w-full p-2 border rounded text-white
+             bg-gray-900 border-gray-600 resize-none h-auto"
+              placeholder="Enter your question here..."
+              onKeyUp={handleKeyPress}
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+            ></textarea>
+            <button
+              className="mt-2 bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded"
+              onClick={() => handleSendMessage(inputValue.trim())}
+            >
+              Send
+            </button>
+          </div>
+        </div>
+      </main>
+      <footer className="bg-gray-800 text-white text-center p-4 text-xs">
+        10 Academy
+      </footer>
     </div>
   );
 };
