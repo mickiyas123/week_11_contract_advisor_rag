@@ -4,9 +4,9 @@ from typing import TypedDict
 
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.runnables import RunnableParallel
 from langchain_community.vectorstores.pgvector import PGVector
 from langchain_core.output_parsers.string import StrOutputParser
+from langchain_core.runnables import RunnableParallel
 from dotenv import load_dotenv
 
 
@@ -36,19 +36,19 @@ class RagInput(TypedDict):
     question: str
 
 
-final_chain = (
-    {
-        "context": itemgetter("question") | vector_store.as_retriever(),
-        "question": itemgetter("question")   
-    } | ANSWER_PROMPT | llm | StrOutputParser()
-    ).with_types(input_type=RagInput)
-
 # final_chain = (
-#     RunnableParallel(
-#         context=(itemgetter("question") | vector_store.as_retriever()),
-#         question=itemgetter("question")
-#     ) | RunnableParallel(
-#         answer=(ANSWER_PROMPT | llm),
-#         docs=itemgetter("context")
-#     )
+#     {
+#         "context": itemgetter("question") | vector_store.as_retriever(),
+#         "question": itemgetter("question")   
+#     } | ANSWER_PROMPT | llm | StrOutputParser()
 #     ).with_types(input_type=RagInput)
+
+final_chain = (
+    RunnableParallel(
+        context=(itemgetter("question") | vector_store.as_retriever()),
+        question=itemgetter("question")
+    ) | RunnableParallel(
+        answer=(ANSWER_PROMPT | llm),
+        docs=itemgetter("context")
+    )
+    ).with_types(input_type=RagInput)
